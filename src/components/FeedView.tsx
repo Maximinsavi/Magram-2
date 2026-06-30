@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Post } from '../types';
-import { PenTool, Image as ImageIcon, Video, Send, RefreshCw, Layers } from 'lucide-react';
+import { PenTool, Image as ImageIcon, Video, Send, RefreshCw, Layers, AlertCircle } from 'lucide-react';
 import PostCard from './PostCard';
 
 interface FeedViewProps {
@@ -27,21 +27,35 @@ export default function FeedView({
   const [showAttachments, setShowAttachments] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Load all posts in real-time
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    setError(null);
+    // Query the raw collection and sort in memory.
+    // This is 100% resilient, does not require composite indexes, and guarantees
+    // posts with missing or pending timestamps are not ignored or excluded!
+    const q = query(collection(db, 'posts'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const postsData: Post[] = [];
       snapshot.forEach((doc) => {
         postsData.push({ id: doc.id, ...doc.data() } as Post);
       });
+      
+      // Sort in memory safely
+      postsData.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || (a.createdAt instanceof Date ? a.createdAt.getTime() / 1000 : 0);
+        const timeB = b.createdAt?.seconds || (b.createdAt instanceof Date ? b.createdAt.getTime() / 1000 : 0);
+        return timeB - timeA; // Descending order (newest first)
+      });
+
       setPosts(postsData);
       setLoading(false);
-    }, (error) => {
-      console.error("Error loading posts in real-time:", error);
+    }, (err) => {
+      console.error("Error loading posts in real-time:", err);
+      setError(err instanceof Error ? err.message : String(err));
       setLoading(false);
     });
 
@@ -54,6 +68,7 @@ export default function FeedView({
     if (!content.trim() || submitting) return;
 
     setSubmitting(true);
+    setError(null);
     const postContent = content.trim();
     const attachedImage = imageUrl.trim();
     const attachedVideo = videoUrl.trim();
@@ -89,8 +104,9 @@ export default function FeedView({
         commentsCount: 0,
         repostsCount: 0
       });
-    } catch (error) {
-      console.error("Error creating post:", error);
+    } catch (err: any) {
+      console.error("Error creating post:", err);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
@@ -103,6 +119,33 @@ export default function FeedView({
 
   return (
     <div className="space-y-4">
+      {/* Informative Error/Troubleshooting Banner */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg space-y-2 text-xs sm:text-sm">
+          <div className="flex items-start gap-2 font-bold text-red-900">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-600" />
+            <span>Erreur d'accès à la base de données Firestore</span>
+          </div>
+          <p className="text-gray-600">
+            Les publications n'ont pas pu s'afficher à cause de l'erreur suivante retournée par votre projet Firebase :
+          </p>
+          <pre className="bg-red-100 p-2.5 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap max-h-32 text-red-900 border border-red-200">
+            {error}
+          </pre>
+          <div className="pt-1 text-gray-700 leading-relaxed font-medium">
+            💡 <span className="underline">Comment résoudre cela :</span>
+            <ul className="list-disc pl-5 mt-1 space-y-1">
+              <li>
+                Assurez-vous d'avoir bien <strong>activé Firestore Database</strong> dans la console Firebase (sur votre projet <strong>maxgram-e0a89</strong>).
+              </li>
+              <li>
+                Vérifiez vos <strong>Règles de sécurité Firestore</strong>. Pour le développement, vous pouvez temporairement autoriser la lecture/écriture ou publier vos règles de sécurité de l'application.
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Create Post Card */}
       {!activePostId && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, where, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { UserProfile } from './types';
 
@@ -18,7 +18,7 @@ import ProfileView from './components/ProfileView';
 export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Default to false so login screen shows immediately with no blocking loader
 
   // Tabs / Active views state
   const [activeTab, setActiveTab] = useState<string>('feed');
@@ -47,16 +47,61 @@ export default function App() {
 
   // 2. Listen to Firestore logged-in User profile document in real-time
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      setLoading(false);
+      return;
+    }
 
+    setLoading(true);
     const userDocRef = doc(db, 'users', currentUser.uid);
-    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+    const unsubscribe = onSnapshot(userDocRef, async (docSnap) => {
       if (docSnap.exists()) {
         setUserProfile({ id: docSnap.id, ...docSnap.data() } as UserProfile);
+        setLoading(false);
+      } else {
+        // Auto-create profile if it doesn't exist yet (very useful if they logged in with Google/email or rule resets)
+        try {
+          const defaultDisplayName = currentUser.displayName || currentUser.email?.split('@')[0] || 'Utilisateur MaxGram';
+          const defaultUsername = (currentUser.email?.split('@')[0] || currentUser.uid.substring(0, 8)).toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          const newProfileData = {
+            id: currentUser.uid,
+            username: defaultUsername,
+            displayName: defaultDisplayName,
+            email: currentUser.email || '',
+            photoUrl: currentUser.photoURL || '',
+            bio: 'Membre passionné de MaxGram.',
+            createdAt: serverTimestamp()
+          };
+
+          await setDoc(userDocRef, newProfileData);
+          // Snapshot listener will trigger again and populate the state
+        } catch (err) {
+          console.error("Failed to auto-create user document, using client fallback:", err);
+          setUserProfile({
+            id: currentUser.uid,
+            username: 'user_' + currentUser.uid.substring(0, 5),
+            displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Membre MaxGram',
+            email: currentUser.email || '',
+            photoUrl: currentUser.photoURL || '',
+            bio: 'Membre passionné de MaxGram.',
+            createdAt: new Date()
+          } as any);
+          setLoading(false);
+        }
       }
-      setLoading(false);
     }, (error) => {
       console.error("Error listening to user profile:", error);
+      // Fallback in case of database permission block or default rule deny so the user can still access the app
+      setUserProfile({
+        id: currentUser.uid,
+        username: 'user_' + currentUser.uid.substring(0, 5),
+        displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Membre MaxGram',
+        email: currentUser.email || '',
+        photoUrl: currentUser.photoURL || '',
+        bio: 'Membre passionné de MaxGram.',
+        createdAt: new Date()
+      } as any);
       setLoading(false);
     });
 
@@ -90,6 +135,8 @@ export default function App() {
 
       setUnreadNotifications(interactionsCount);
       setUnreadMessages(messagesCount);
+    }, (error) => {
+      console.error("Error listening to notifications:", error);
     });
 
     return () => unsubscribeNotifs();
