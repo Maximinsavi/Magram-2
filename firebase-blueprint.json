@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and profile data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "bio": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "username", "displayName", "email", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "A user-created social post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhotoUrl": { "type": "string" },
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likesCount": { "type": "integer" },
+        "lovesCount": { "type": "integer" },
+        "hahasCount": { "type": "integer" },
+        "commentsCount": { "type": "integer" },
+        "repostsCount": { "type": "integer" },
+        "originalPostId": { "type": "string" },
+        "originalAuthorId": { "type": "string" },
+        "originalAuthorName": { "type": "string" }
+      },
+      "required": ["id", "authorId", "authorName", "content", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhotoUrl": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "Reaction": {
+      "title": "Reaction",
+      "description": "A user's dynamic reaction to a post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat Thread",
+      "description": "A conversation between two users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participantIds": { "type": "array" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "lastSenderId": { "type": "string" }
+      },
+      "required": ["id", "participantIds"]
+    },
+    "Message": {
+      "title": "Private Message",
+      "description": "A direct chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "receiverId", "content", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "An action alert to a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhotoUrl": { "type": "string" },
+        "type": { "type": "string" },
+        "postId": { "type": "string" },
+        "chatSenderId": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "recipientId", "senderId", "senderName", "type", "isRead", "createdAt"]
+    },
+    "SavedPost": {
+      "title": "Saved Post Reference",
+      "description": "A bookmark reference to a post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "savedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User collection indexed by Auth UID"
+    },
+    "/users/{userId}/savedPosts/{postId}": {
+      "schema": "SavedPost",
+      "description": "Sub-collection under users for saved posts bookmark"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Root collection for social publications"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Sub-collection for comments on a specific post"
+    },
+    "/posts/{postId}/reactions/{userId}": {
+      "schema": "Reaction",
+      "description": "Sub-collection for post reactions (keyed by user ID)"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Root collection for private messaging threads"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Sub-collection for messages in a chat thread"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Root collection for active user notifications"
+    }
+  }
+}

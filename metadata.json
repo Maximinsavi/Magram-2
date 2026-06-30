@@ -1,0 +1,6 @@
+{
+  "name": "MaxGram",
+  "description": "Un réseau social ultra-léger et rapide, inspiré de Facebook, optimisé pour les connexions lentes et les téléphones anciens. Comprend un fil d'actualité, messagerie en temps réel, réactions, commentaires, partages, sauvegardes, notifications et profils.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
